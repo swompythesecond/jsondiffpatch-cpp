@@ -3,8 +3,6 @@
 A lightweight C++ implementation of [jsondiffpatch](https://github.com/benjamine/jsondiffpatch) with a clean C API.
 
 This repository contains **only the C++ library**.  
-If you’re looking for the GameMaker Studio 2 extension built on top of this library, see:  
-➡️ [JsonDiffPatch GMS Extension](https://github.com/YOURNAME/jsondiffpatch-gms)
 
 ---
 
