@@ -554,90 +554,103 @@ json JsonDiffPatch::ObjectPatch(const json& obj, const json& patch) {
 }
 
 json JsonDiffPatch::ArrayPatch(const json& left, const json& patch) {
-    json result = left;
-    
-    struct Operation {
-        bool isRemoval = false;
-        size_t index = 0;
-        json value;
-        bool isMove = false;
-        size_t moveTarget = 0;
-    };
-    
-    std::vector<Operation> operations;
-    
+    // Expect: patch has "_t":"a"
+    std::vector<json> arr = left.get<std::vector<json>>();
+
+    struct Removal { size_t index; bool isMove; size_t moveTarget; };
+    struct Modification { size_t index; json value; };
+    struct Insertion { size_t index; json value; bool isMove; };
+
+    std::vector<Removal> removals;
+    std::vector<Modification> modifications;
+    std::vector<Insertion> insertions;
+
+    // Classify ops
     for (auto it = patch.begin(); it != patch.end(); ++it) {
         const std::string& key = it.key();
-        const json& value = it.value();
-        
         if (key == "_t") continue;
-        
-        if (key.front() == '_') {
-            // Removal or move
-            size_t index = std::stoul(key.substr(1));
-            if (value.is_array() && value.size() == 3) {
-                int op = value[2].get<int>();
+
+        const json& v = it.value();
+        if (!key.empty() && key[0] == '_') {
+            // deletion or move-out
+            size_t idx = std::stoul(key.substr(1));
+            if (v.is_array() && v.size() == 3) {
+                int op = v[2].get<int>();
                 if (op == OP_DELETED) {
-                    Operation operation;
-                    operation.isRemoval = true;
-                    operation.index = index;
-                    operation.value = value;
-                    operations.push_back(operation);
-                } else if (op == OP_ARRAYMOVE) {
-                    Operation operation;
-                    operation.isRemoval = true;
-                    operation.index = index;
-                    operation.value = value;
-                    operation.isMove = true;
-                    operation.moveTarget = value[1].get<size_t>();
-                    operations.push_back(operation);
+                    removals.push_back({ idx, false, 0 });
                 }
-            }
-        } else {
-            // Addition or modification
-            size_t index = std::stoul(key);
-            Operation operation;
-            operation.isRemoval = false;
-            operation.index = index;
-            operation.value = value;
-            operations.push_back(operation);
-        }
-    }
-    
-    // Sort removals in reverse order
-    std::sort(operations.begin(), operations.end(), [](const Operation& a, const Operation& b) {
-        if (a.isRemoval && b.isRemoval) return a.index > b.index;
-        if (a.isRemoval && !b.isRemoval) return true;
-        if (!a.isRemoval && b.isRemoval) return false;
-        return a.index > b.index;
-    });
-    
-    std::vector<json> arr = result.get<std::vector<json>>();
-    
-    for (const auto& op : operations) {
-        if (op.isRemoval) {
-            if (op.index < arr.size()) {
-                if (op.isMove) {
-                    json moveValue = arr[op.index];
-                    arr.erase(arr.begin() + op.index);
-                    arr.insert(arr.begin() + op.moveTarget, moveValue);
-                } else {
-                    arr.erase(arr.begin() + op.index);
-                }
-            }
-        } else {
-            if (op.value.is_array() && op.value.size() == 1) {
-                // Insert
-                arr.insert(arr.begin() + op.index, op.value[0]);
-            } else {
-                // Modify
-                if (op.index < arr.size()) {
-                    arr[op.index] = Patch(arr[op.index], op.value);
+                else if (op == OP_ARRAYMOVE) {
+                    // jsondiffpatch encodes move as ["<val>", toIndex, 3]
+                    size_t to = v[1].get<size_t>();
+                    removals.push_back({ idx, true, to });
                 }
             }
         }
+        else {
+            // addition or modification
+            size_t idx = std::stoul(key);
+            if (v.is_array() && v.size() == 1) {
+                insertions.push_back({ idx, v[0], false });
+            }
+            else if (v.is_array() && v.size() == 3 && v[2].is_number_integer()
+                && v[2].get<int>() == OP_ARRAYMOVE) {
+                // (rare form) move encoded on positive key
+                size_t to = v[1].get<size_t>();
+                // treat as: remove from '_' + fromIndex and insert at to
+                // if you ever generate this form, you’d need the "from"; most diffs use the '_' key form.
+                insertions.push_back({ to, v[0], true });
+            }
+            else {
+                modifications.push_back({ idx, v });
+            }
+        }
     }
-    
+
+    // 1) Apply removals (including move extraction) in DESC order
+    std::sort(removals.begin(), removals.end(),
+        [](const Removal& a, const Removal& b) { return a.index > b.index; });
+
+    // Keep a temporary store for values we move so we can reinsert later using fresh indices
+    struct PendingMove { size_t target; json value; };
+    std::vector<PendingMove> pendingMoves;
+
+    for (const auto& r : removals) {
+        if (arr.empty()) continue;
+        size_t idx = (r.index < arr.size()) ? r.index : (arr.size() - 1);
+        json taken = arr[idx];
+        arr.erase(arr.begin() + idx);
+        if (r.isMove) {
+            pendingMoves.push_back({ r.moveTarget, taken });
+        }
+    }
+
+    // 2) Apply modifications in ASC order (only if index still exists)
+    std::sort(modifications.begin(), modifications.end(),
+        [](const Modification& a, const Modification& b) { return a.index < b.index; });
+
+    for (const auto& m : modifications) {
+        if (m.index < arr.size()) {
+            arr[m.index] = Patch(arr[m.index], m.value);
+        }
+    }
+
+    // 3) Apply move insertions first (ASC), then regular insertions (ASC)
+    std::sort(pendingMoves.begin(), pendingMoves.end(),
+        [](const PendingMove& a, const PendingMove& b) { return a.target < b.target; });
+
+    for (const auto& mv : pendingMoves) {
+        size_t pos = (mv.target <= arr.size()) ? mv.target : arr.size();
+        arr.insert(arr.begin() + pos, mv.value);
+    }
+
+    std::sort(insertions.begin(), insertions.end(),
+        [](const Insertion& a, const Insertion& b) { return a.index < b.index; });
+
+    for (const auto& ins : insertions) {
+        size_t pos = (ins.index <= arr.size()) ? ins.index : arr.size();
+        arr.insert(arr.begin() + pos, ins.value);
+    }
+
     return json(arr);
 }
 
@@ -754,95 +767,91 @@ json JsonDiffPatch::ObjectUnpatch(const json& obj, const json& patch) {
 }
 
 json JsonDiffPatch::ArrayUnpatch(const json& right, const json& patch) {
-    // Similar to ArrayPatch but operations are reversed
-    json result = right;
-    
-    struct Operation {
-        bool isInsertion = false;
-        size_t index = 0;
-        json value;
-        bool isMove = false;
-        size_t moveSource = 0;
-    };
-    
-    std::vector<Operation> operations;
-    
+    std::vector<json> arr = right.get<std::vector<json>>();
+
+    struct AddWas { size_t index; };                  // positive key, size==1 → remove
+    struct DelWas { size_t index; json value; };      // "_i": [value,0,0] → insert back
+    struct ModWas { size_t index; json value; };      // positive key with object → unpatch
+    struct MoveBack { size_t from; size_t to; };      // moved to "to" from "from" → move back
+
+    std::vector<AddWas> adds;         // will remove these
+    std::vector<DelWas> dels;         // will reinsert these
+    std::vector<ModWas> mods;         // will unpatch these
+    std::vector<MoveBack> moves;      // will move back
+
     for (auto it = patch.begin(); it != patch.end(); ++it) {
         const std::string& key = it.key();
-        const json& value = it.value();
-        
         if (key == "_t") continue;
-        
-        if (key.front() == '_') {
-            // Was removal, now insertion
-            size_t index = std::stoul(key.substr(1));
-            if (value.is_array() && value.size() == 3) {
-                int op = value[2].get<int>();
+        const json& v = it.value();
+
+        if (!key.empty() && key[0] == '_') {
+            size_t idx = std::stoul(key.substr(1));
+            if (v.is_array() && v.size() == 3) {
+                int op = v[2].get<int>();
                 if (op == OP_DELETED) {
-                    Operation operation;
-                    operation.isInsertion = true;
-                    operation.index = index;
-                    operation.value = value[0];
-                    operations.push_back(operation);
-                } else if (op == OP_ARRAYMOVE) {
-                    Operation operation;
-                    operation.isInsertion = true;
-                    operation.index = index;
-                    operation.value = value[0];
-                    operation.isMove = true;
-                    operation.moveSource = value[1].get<size_t>();
-                    operations.push_back(operation);
+                    dels.push_back({ idx, v[0] });
                 }
-            }
-        } else {
-            // Was addition or modification, now removal or reverse modification
-            size_t index = std::stoul(key);
-            if (value.is_array() && value.size() == 1) {
-                Operation operation;
-                operation.isInsertion = false;
-                operation.index = index;
-                operation.value = json(nullptr);
-                operations.push_back(operation);
-            } else {
-                Operation operation;
-                operation.isInsertion = false;
-                operation.index = index;
-                operation.value = value;
-                operations.push_back(operation);
-            }
-        }
-    }
-    
-    std::vector<json> arr = result.get<std::vector<json>>();
-    
-    // Apply operations
-    for (const auto& op : operations) {
-        if (op.isInsertion) {
-            if (op.isMove) {
-                // Move element back
-                if (op.moveSource < arr.size()) {
-                    json moveValue = arr[op.moveSource];
-                    arr.erase(arr.begin() + op.moveSource);
-                    arr.insert(arr.begin() + op.index, moveValue);
-                }
-            } else {
-                arr.insert(arr.begin() + op.index, op.value);
-            }
-        } else {
-            if (op.value.is_null()) {
-                // Remove
-                if (op.index < arr.size()) {
-                    arr.erase(arr.begin() + op.index);
-                }
-            } else {
-                // Reverse modify
-                if (op.index < arr.size()) {
-                    arr[op.index] = Unpatch(arr[op.index], op.value);
+                else if (op == OP_ARRAYMOVE) {
+                    // original: moved from idx to v[1]
+                    size_t to = v[1].get<size_t>();
+                    moves.push_back({ to, idx }); // move back from "to" to "idx"
                 }
             }
         }
+        else {
+            size_t idx = std::stoul(key);
+            if (v.is_array() && v.size() == 1) {
+                adds.push_back({ idx });
+            }
+            else {
+                mods.push_back({ idx, v });
+            }
+        }
     }
-    
+
+    // 1) Undo additions: remove at index (DESC to keep indices stable)
+    std::sort(adds.begin(), adds.end(),
+        [](const AddWas& a, const AddWas& b) { return a.index > b.index; });
+    for (const auto& a : adds) {
+        if (arr.empty()) continue;
+        if (a.index < arr.size()) {
+            arr.erase(arr.begin() + a.index);
+        }
+        else {
+            // if out of range, remove last (best-effort)
+            arr.pop_back();
+        }
+    }
+
+    // 2) Undo moves: move from 'from' back to 'to' (ASC by target)
+    std::sort(moves.begin(), moves.end(),
+        [](const MoveBack& x, const MoveBack& y) { return x.to < y.to; });
+    for (const auto& mv : moves) {
+        if (arr.empty()) continue;
+        size_t from = (mv.from < arr.size()) ? mv.from : (arr.size() - 1);
+        json val = arr[from];
+        arr.erase(arr.begin() + from);
+        size_t to = (mv.to <= arr.size()) ? mv.to : arr.size();
+        arr.insert(arr.begin() + to, val);
+    }
+
+    // 3) Undo modifications (ASC)
+    std::sort(mods.begin(), mods.end(),
+        [](const ModWas& a, const ModWas& b) { return a.index < b.index; });
+    for (const auto& m : mods) {
+        if (m.index < arr.size()) {
+            arr[m.index] = Unpatch(arr[m.index], m.value);
+        }
+    }
+
+    // 4) Reinsert deletions (ASC)
+    std::sort(dels.begin(), dels.end(),
+        [](const DelWas& a, const DelWas& b) { return a.index < b.index; });
+    for (const auto& d : dels) {
+        size_t pos = (d.index <= arr.size()) ? d.index : arr.size();
+        arr.insert(arr.begin() + pos, d.value);
+    }
+
     return json(arr);
 }
 
