@@ -346,6 +346,40 @@ json JsonDiffPatch::ArrayDiff(const json& left, const json& right) {
     std::vector<json> leftVec = left.get<std::vector<json>>();
     std::vector<json> rightVec = right.get<std::vector<json>>();
     
+    // Handle case where arrays have same length - check for simple replacements first
+    if (leftVec.size() == rightVec.size()) {
+        bool hasChanges = false;
+        
+        for (size_t i = 0; i < leftVec.size(); ++i) {
+            if (!itemMatch.Match(leftVec[i], rightVec[i])) {
+                // Check if this is a simple replacement vs nested change
+                json childDiff = Diff(leftVec[i], rightVec[i]);
+                if (!childDiff.is_null()) {
+                    if (childDiff.is_array() && childDiff.size() == 2) {
+                        // Simple replacement: [old_value, new_value]
+                        result[std::to_string(i)] = childDiff;
+                    } else {
+                        // Nested change (object diff, etc.)
+                        result[std::to_string(i)] = childDiff;
+                    }
+                    hasChanges = true;
+                }
+            }
+        }
+        
+        if (!hasChanges) {
+            return json(nullptr);
+        }
+        
+        // Check if result is empty (only contains "_t")
+        if (result.size() == 1 && result.contains("_t")) {
+            return json(nullptr);
+        }
+        
+        return result;
+    }
+    
+    // For different length arrays, use the existing LCS-based approach
     size_t commonHead = 0;
     size_t commonTail = 0;
     

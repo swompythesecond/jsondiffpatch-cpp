@@ -93,6 +93,24 @@ TEST(BasicUnpatch) {
     ASSERT_EQ(unpatched, left);
 }
 
+// Test basic array diff
+TEST(BasicArrayDiff) {
+    JsonDiffPatch::JsonDiffPatch jdp;
+    
+    json left = json::array({1, 2, 3});
+    json right = json::array({1, 2, 4});
+    
+    json diff = jdp.Diff(left, right);
+    
+    ASSERT_FALSE(diff.is_null());
+    ASSERT_TRUE(diff.contains("_t"));
+    ASSERT_EQ(diff["_t"], "a");
+    ASSERT_TRUE(diff.contains("2"));
+    ASSERT_TRUE(diff["2"].is_array());
+    ASSERT_EQ(diff["2"][0], 3);
+    ASSERT_EQ(diff["2"][1], 4);
+}
+
 // Test array addition
 TEST(ArrayAddition) {
     JsonDiffPatch::JsonDiffPatch jdp;

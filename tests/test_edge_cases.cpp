@@ -120,6 +120,19 @@ TEST(DeeplyNestedObject) {
     ASSERT_EQ(patched, right);
 }
 
+// Test array with mixed types
+TEST(MixedTypeArray) {
+    JsonDiffPatch::JsonDiffPatch jdp;
+    
+    json left = json::array({1, "hello", true, nullptr, {{"key", "value"}}});
+    json right = json::array({2, "hello", false, nullptr, {{"key", "new_value"}}});
+    
+    json diff = jdp.Diff(left, right);
+    json patched = jdp.Patch(left, diff);
+    
+    ASSERT_EQ(patched, right);
+}
+
 // Test invalid JSON in C API
 TEST(C_API_InvalidJSON) {
     const char* invalid_json = "{invalid json}";
