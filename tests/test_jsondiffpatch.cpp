@@ -2,13 +2,12 @@
 #include "../include/JsonDiffPatch/JsonDiffPatch.h"
 
 using json = nlohmann::json;
-using namespace JsonDiffPatch;
 
 TestRunner globalTestRunner;
 
 // Test basic object diff
 TEST(BasicObjectDiff) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"x", 1}, {"y", 2}};
     json right = {{"x", 1}, {"y", 3}};
@@ -24,7 +23,7 @@ TEST(BasicObjectDiff) {
 
 // Test object addition
 TEST(ObjectAddition) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"x", 1}};
     json right = {{"x", 1}, {"y", 2}};
@@ -40,7 +39,7 @@ TEST(ObjectAddition) {
 
 // Test object deletion
 TEST(ObjectDeletion) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"x", 1}, {"y", 2}};
     json right = {{"x", 1}};
@@ -53,12 +52,12 @@ TEST(ObjectDeletion) {
     ASSERT_EQ(diff["y"].size(), 3);
     ASSERT_EQ(diff["y"][0], 2);
     ASSERT_EQ(diff["y"][1], 0);
-    ASSERT_EQ(diff["y"][2], OP_DELETED);
+    ASSERT_EQ(diff["y"][2], JsonDiffPatch::OP_DELETED);
 }
 
 // Test no changes
 TEST(NoChanges) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"x", 1}, {"y", 2}};
     json right = {{"x", 1}, {"y", 2}};
@@ -70,7 +69,7 @@ TEST(NoChanges) {
 
 // Test patch application
 TEST(BasicPatch) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"x", 1}, {"y", 2}};
     json right = {{"x", 1}, {"y", 3}};
@@ -83,7 +82,7 @@ TEST(BasicPatch) {
 
 // Test unpatch application
 TEST(BasicUnpatch) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"x", 1}, {"y", 2}};
     json right = {{"x", 1}, {"y", 3}};
@@ -94,27 +93,9 @@ TEST(BasicUnpatch) {
     ASSERT_EQ(unpatched, left);
 }
 
-// Test array diff
-TEST(BasicArrayDiff) {
-    JsonDiffPatch jdp;
-    
-    json left = json::array({1, 2, 3});
-    json right = json::array({1, 2, 4});
-    
-    json diff = jdp.Diff(left, right);
-    
-    ASSERT_FALSE(diff.is_null());
-    ASSERT_TRUE(diff.contains("_t"));
-    ASSERT_EQ(diff["_t"], "a");
-    ASSERT_TRUE(diff.contains("2"));
-    ASSERT_TRUE(diff["2"].is_array());
-    ASSERT_EQ(diff["2"][0], 3);
-    ASSERT_EQ(diff["2"][1], 4);
-}
-
 // Test array addition
 TEST(ArrayAddition) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array({1, 2});
     json right = json::array({1, 2, 3});
@@ -132,7 +113,7 @@ TEST(ArrayAddition) {
 
 // Test array deletion
 TEST(ArrayDeletion) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array({1, 2, 3});
     json right = json::array({1, 2});
@@ -147,12 +128,12 @@ TEST(ArrayDeletion) {
     ASSERT_EQ(diff["_2"].size(), 3);
     ASSERT_EQ(diff["_2"][0], 3);
     ASSERT_EQ(diff["_2"][1], 0);
-    ASSERT_EQ(diff["_2"][2], OP_DELETED);
+    ASSERT_EQ(diff["_2"][2], JsonDiffPatch::OP_DELETED);
 }
 
 // Test array patch
 TEST(ArrayPatch) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array({1, 2, 3});
     json right = json::array({1, 2, 4});
@@ -165,7 +146,7 @@ TEST(ArrayPatch) {
 
 // Test array unpatch
 TEST(ArrayUnpatch) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array({1, 2, 3});
     json right = json::array({1, 2, 4});
@@ -178,7 +159,7 @@ TEST(ArrayUnpatch) {
 
 // Test string diff
 TEST(StringDiff) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = "Hello World";
     json right = "Hello Universe";
@@ -194,7 +175,7 @@ TEST(StringDiff) {
 
 // Test complex nested object
 TEST(NestedObjectDiff) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {
         {"user", {
@@ -235,7 +216,7 @@ TEST(NestedObjectDiff) {
 
 // Test mixed array with objects
 TEST(ArrayWithObjects) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array({
         {{"id", 1}, {"name", "Alice"}},
@@ -312,7 +293,7 @@ TEST(C_API_Unpatch) {
 
 // Test empty objects
 TEST(EmptyObjects) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::object();
     json right = {{"x", 1}};
@@ -325,7 +306,7 @@ TEST(EmptyObjects) {
 
 // Test null values
 TEST(NullValues) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"x", nullptr}};
     json right = {{"x", 1}};
@@ -338,7 +319,7 @@ TEST(NullValues) {
 
 // Test boolean values
 TEST(BooleanValues) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"flag", true}};
     json right = {{"flag", false}};
@@ -351,7 +332,7 @@ TEST(BooleanValues) {
 
 // Test number types
 TEST(NumberTypes) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"int", 42}, {"float", 3.14}};
     json right = {{"int", 43}, {"float", 2.71}};

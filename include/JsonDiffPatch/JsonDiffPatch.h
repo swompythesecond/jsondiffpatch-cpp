@@ -115,9 +115,19 @@ namespace JsonDiffPatch {
 } // namespace JsonDiffPatch
 
 // C API for GameMaker Studio 2
+#ifdef _WIN32
+    #ifdef JSONDIFFPATCH_EXPORTS
+        #define JSONDIFFPATCH_API __declspec(dllexport)
+    #else
+        #define JSONDIFFPATCH_API
+    #endif
+#else
+    #define JSONDIFFPATCH_API
+#endif
+
 extern "C" {
-    __declspec(dllexport) const char* JDP_Diff(const char* json_left, const char* json_right);
-    __declspec(dllexport) const char* JDP_Patch(const char* json_left, const char* patch_json);
-    __declspec(dllexport) const char* JDP_Unpatch(const char* json_right, const char* patch_json);
-    __declspec(dllexport) void JDP_FreeString(const char* s);
+    JSONDIFFPATCH_API const char* JDP_Diff(const char* json_left, const char* json_right);
+    JSONDIFFPATCH_API const char* JDP_Patch(const char* json_left, const char* patch_json);
+    JSONDIFFPATCH_API const char* JDP_Unpatch(const char* json_right, const char* patch_json);
+    JSONDIFFPATCH_API void JDP_FreeString(const char* s);
 }

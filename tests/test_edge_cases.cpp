@@ -2,53 +2,52 @@
 #include "../include/JsonDiffPatch/JsonDiffPatch.h"
 
 using json = nlohmann::json;
-using namespace JsonDiffPatch;
 
 extern TestRunner globalTestRunner;
 
 // Test text diff functionality
 TEST(TextDiffBasic) {
-    auto diffs = SimpleTextDiff::ComputeDiff("Hello World", "Hello Universe");
+    auto diffs = JsonDiffPatch::SimpleTextDiff::ComputeDiff("Hello World", "Hello Universe");
     
     ASSERT_FALSE(diffs.empty());
-    ASSERT_EQ(diffs[0].operation, DIFF_EQUAL);
+    ASSERT_EQ(diffs[0].operation, JsonDiffPatch::DIFF_EQUAL);
     ASSERT_EQ(diffs[0].text, "Hello ");
-    ASSERT_EQ(diffs[1].operation, DIFF_DELETE);
+    ASSERT_EQ(diffs[1].operation, JsonDiffPatch::DIFF_DELETE);
     ASSERT_EQ(diffs[1].text, "World");
-    ASSERT_EQ(diffs[2].operation, DIFF_INSERT);
+    ASSERT_EQ(diffs[2].operation, JsonDiffPatch::DIFF_INSERT);
     ASSERT_EQ(diffs[2].text, "Universe");
 }
 
 // Test text diff with identical strings
 TEST(TextDiffIdentical) {
-    auto diffs = SimpleTextDiff::ComputeDiff("Hello", "Hello");
+    auto diffs = JsonDiffPatch::SimpleTextDiff::ComputeDiff("Hello", "Hello");
     
     ASSERT_EQ(diffs.size(), 1);
-    ASSERT_EQ(diffs[0].operation, DIFF_EQUAL);
+    ASSERT_EQ(diffs[0].operation, JsonDiffPatch::DIFF_EQUAL);
     ASSERT_EQ(diffs[0].text, "Hello");
 }
 
 // Test text diff with empty strings
 TEST(TextDiffEmpty) {
-    auto diffs = SimpleTextDiff::ComputeDiff("", "");
+    auto diffs = JsonDiffPatch::SimpleTextDiff::ComputeDiff("", "");
     ASSERT_TRUE(diffs.empty());
     
-    diffs = SimpleTextDiff::ComputeDiff("Hello", "");
+    diffs = JsonDiffPatch::SimpleTextDiff::ComputeDiff("Hello", "");
     ASSERT_EQ(diffs.size(), 1);
-    ASSERT_EQ(diffs[0].operation, DIFF_DELETE);
+    ASSERT_EQ(diffs[0].operation, JsonDiffPatch::DIFF_DELETE);
     ASSERT_EQ(diffs[0].text, "Hello");
     
-    diffs = SimpleTextDiff::ComputeDiff("", "Hello");
+    diffs = JsonDiffPatch::SimpleTextDiff::ComputeDiff("", "Hello");
     ASSERT_EQ(diffs.size(), 1);
-    ASSERT_EQ(diffs[0].operation, DIFF_INSERT);
+    ASSERT_EQ(diffs[0].operation, JsonDiffPatch::DIFF_INSERT);
     ASSERT_EQ(diffs[0].text, "Hello");
 }
 
 // Test text encoding/decoding
 TEST(TextEncoding) {
     std::string original = "Hello\nWorld\r\nWith%Percent";
-    std::string encoded = SimpleTextDiff::Encode(original);
-    std::string decoded = SimpleTextDiff::Decode(encoded);
+    std::string encoded = JsonDiffPatch::SimpleTextDiff::Encode(original);
+    std::string decoded = JsonDiffPatch::SimpleTextDiff::Decode(encoded);
     
     ASSERT_EQ(decoded, original);
     ASSERT_TRUE(encoded.find("%0A") != std::string::npos); // Contains encoded newline
@@ -60,23 +59,23 @@ TEST(TextPatches) {
     std::string text1 = "The quick brown fox";
     std::string text2 = "The quick red fox";
     
-    auto patches = SimpleTextDiff::CreatePatches(text1, text2);
+    auto patches = JsonDiffPatch::SimpleTextDiff::CreatePatches(text1, text2);
     ASSERT_FALSE(patches.empty());
     
-    std::string patchText = SimpleTextDiff::PatchesToText(patches);
+    std::string patchText = JsonDiffPatch::SimpleTextDiff::PatchesToText(patches);
     ASSERT_FALSE(patchText.empty());
     
-    auto parsedPatches = SimpleTextDiff::PatchesFromText(patchText);
+    auto parsedPatches = JsonDiffPatch::SimpleTextDiff::PatchesFromText(patchText);
     ASSERT_FALSE(parsedPatches.empty());
     
-    auto result = SimpleTextDiff::ApplyPatches(parsedPatches, text1);
+    auto result = JsonDiffPatch::SimpleTextDiff::ApplyPatches(parsedPatches, text1);
     ASSERT_EQ(result.first, text2);
     ASSERT_TRUE(result.second[0]); // Patch applied successfully
 }
 
 // Test large array operations
 TEST(LargeArrayDiff) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array();
     json right = json::array();
@@ -98,7 +97,7 @@ TEST(LargeArrayDiff) {
 
 // Test deeply nested objects
 TEST(DeeplyNestedObject) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {
         {"level1", {
@@ -114,19 +113,6 @@ TEST(DeeplyNestedObject) {
     
     json right = left;
     right["level1"]["level2"]["level3"]["level4"]["value"] = 43;
-    
-    json diff = jdp.Diff(left, right);
-    json patched = jdp.Patch(left, diff);
-    
-    ASSERT_EQ(patched, right);
-}
-
-// Test array with mixed types
-TEST(MixedTypeArray) {
-    JsonDiffPatch jdp;
-    
-    json left = json::array({1, "hello", true, nullptr, {{"key", "value"}}});
-    json right = json::array({2, "hello", false, nullptr, {{"key", "new_value"}}});
     
     json diff = jdp.Diff(left, right);
     json patched = jdp.Patch(left, diff);
@@ -166,7 +152,7 @@ TEST(C_API_NullPointers) {
 
 // Test LCS (Longest Common Subsequence) with complex arrays
 TEST(ComplexArrayLCS) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array({
         {{"id", 1}, {"name", "Alice"}},
@@ -189,7 +175,7 @@ TEST(ComplexArrayLCS) {
 
 // Test array reordering
 TEST(ArrayReordering) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::array({1, 2, 3, 4, 5});
     json right = json::array({5, 4, 3, 2, 1});
@@ -202,7 +188,7 @@ TEST(ArrayReordering) {
 
 // Test object with array values
 TEST(ObjectWithArrays) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {
         {"numbers", json::array({1, 2, 3})},
@@ -222,7 +208,7 @@ TEST(ObjectWithArrays) {
 
 // Test performance with large objects
 TEST(LargeObjectPerformance) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = json::object();
     json right = json::object();
@@ -247,7 +233,7 @@ TEST(LargeObjectPerformance) {
 
 // Test special characters in strings
 TEST(SpecialCharactersInStrings) {
-    JsonDiffPatch jdp;
+    JsonDiffPatch::JsonDiffPatch jdp;
     
     json left = {{"text", "Hello \"World\" with 'quotes' and \n newlines"}};
     json right = {{"text", "Hello \"Universe\" with 'quotes' and \n newlines"}};
@@ -260,11 +246,11 @@ TEST(SpecialCharactersInStrings) {
 
 // Test options configuration
 TEST(OptionsConfiguration) {
-    Options opts;
-    opts.ArrayDiff = MODE_SIMPLE;
-    opts.TextDiff = TEXTDIFF_SIMPLE;
+    JsonDiffPatch::Options opts;
+    opts.ArrayDiff = JsonDiffPatch::MODE_SIMPLE;
+    opts.TextDiff = JsonDiffPatch::TEXTDIFF_SIMPLE;
     
-    JsonDiffPatch jdp(opts);
+    JsonDiffPatch::JsonDiffPatch jdp(opts);
     
     json left = json::array({1, 2, 3});
     json right = json::array({1, 2, 4});

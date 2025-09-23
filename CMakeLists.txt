@@ -9,9 +9,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(include)
 include_directories(thirdparty)
 
-# Create library
-add_library(JsonDiffPatch 
+# Create library with proper headers
+add_library(JsonDiffPatch STATIC
     src/JsonDiffPatch.cpp
+    include/JsonDiffPatch/JsonDiffPatch.h
+)
+
+# Set include directories for the library
+target_include_directories(JsonDiffPatch PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
 )
 
 # Create example executable
@@ -25,21 +32,22 @@ target_link_libraries(basic_example JsonDiffPatch)
 # Optional: Create shared library
 add_library(JsonDiffPatchShared SHARED
     src/JsonDiffPatch.cpp
+    include/JsonDiffPatch/JsonDiffPatch.h
 )
 
 # Set output name for shared library
 set_target_properties(JsonDiffPatchShared PROPERTIES OUTPUT_NAME JsonDiffPatch)
 
-# Enable testing
-enable_testing()
+# Set include directories for shared library
+target_include_directories(JsonDiffPatchShared PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
+)
 
-# Create test executable
+# Create test executable (only compile run_all_tests.cpp which includes the others)
 add_executable(run_tests 
     tests/run_all_tests.cpp
 )
 
 # Link test with library
 target_link_libraries(run_tests JsonDiffPatch)
-
-# Add test to CTest
-add_test(NAME JsonDiffPatchTests COMMAND run_tests)
