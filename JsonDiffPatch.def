@@ -1,0 +1,5 @@
+EXPORTS
+JDP_Diff
+JDP_Patch
+JDP_Unpatch
+JDP_FreeString
