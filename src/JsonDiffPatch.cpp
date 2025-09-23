@@ -1,5 +1,4 @@
-#include "pch.h"
-#include "JsonDiffPatch.h"
+#include "../include/JsonDiffPatch/JsonDiffPatch.h"
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
