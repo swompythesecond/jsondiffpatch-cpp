@@ -17,7 +17,11 @@ SHARED_LIBNAME = libJsonDiffPatch.so
 EXAMPLE_SRC = examples/basic_example.cpp
 EXAMPLE_BIN = basic_example
 
-.PHONY: all clean example
+# Tests
+TEST_SRC = tests/run_all_tests.cpp
+TEST_BIN = run_tests
+
+.PHONY: all clean example test
 
 all: $(LIBNAME) $(SHARED_LIBNAME)
 
@@ -39,8 +43,14 @@ example: $(EXAMPLE_BIN)
 $(EXAMPLE_BIN): $(EXAMPLE_SRC) $(LIBNAME)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $< -L. -lJsonDiffPatch
 
+# Tests
+test: $(TEST_BIN)
+
+$(TEST_BIN): $(TEST_SRC) $(LIBNAME)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $< -L. -lJsonDiffPatch
+
 clean:
-	rm -f $(OBJECTS) $(LIBNAME) $(SHARED_LIBNAME) $(EXAMPLE_BIN)
+	rm -f $(OBJECTS) $(LIBNAME) $(SHARED_LIBNAME) $(EXAMPLE_BIN) $(TEST_BIN)
 
 install: $(LIBNAME) $(SHARED_LIBNAME)
 	@echo "Install target not implemented. Please copy files manually:"

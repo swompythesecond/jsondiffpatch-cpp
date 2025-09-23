@@ -29,3 +29,17 @@ add_library(JsonDiffPatchShared SHARED
 
 # Set output name for shared library
 set_target_properties(JsonDiffPatchShared PROPERTIES OUTPUT_NAME JsonDiffPatch)
+
+# Enable testing
+enable_testing()
+
+# Create test executable
+add_executable(run_tests 
+    tests/run_all_tests.cpp
+)
+
+# Link test with library
+target_link_libraries(run_tests JsonDiffPatch)
+
+# Add test to CTest
+add_test(NAME JsonDiffPatchTests COMMAND run_tests)
